@@ -1,143 +1,168 @@
 #include "raylib.h"
+#include "raymath.h"
 #include <math.h>
+#include <stdio.h>
 
-#define MAP_SIZE  8
-#define TILE_SIZE 64
-#define FOV       1.0472f   // 60 graus em radianos
-#define NUM_RAYS  60
-#define MARGIN    4         // margem de colisão em pixels
+// Configurações do Mundo e Janela
+#define SCREEN_WIDTH 800
+#define SCREEN_HEIGHT 450
+#define MAP_WIDTH 600
+#define MAP_HEIGHT 600
 
-int map[MAP_SIZE][MAP_SIZE] = {
-    {1,1,1,1,1,1,1,1},
-    {1,0,0,0,0,0,0,1},
-    {1,0,1,0,0,1,0,1},
-    {1,0,0,0,0,0,0,1},
-    {1,0,0,1,1,0,0,1},
-    {1,0,0,0,0,0,0,1},
-    {1,0,0,0,0,0,0,1},
-    {1,1,1,1,1,1,1,1},
+// Mapa Estático (0 = vazio, 1-3 = paredes)
+const int worldMap[MAP_WIDTH][MAP_HEIGHT] = {
+    {1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1},
+    {1,0,0,0,0,0,0,0,0,0,0,1,3,3,0,0,0,0,0,0,0,0,0,1},
+    {1,0,2,2,0,0,0,0,3,3,0,1,0,3,3,3,3,0,3,3,2,0,0,1},
+    {1,0,2,0,0,0,0,0,0,3,0,1,0,3,0,0,0,0,0,0,0,0,0,1},
+    {1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,3,3,0,0,0,0,0,0,1},
+    {1,0,0,0,0,1,1,0,0,0,0,1,0,0,0,0,0,0,0,0,2,0,0,1},
+    {1,0,0,0,0,1,1,0,0,0,0,1,0,0,0,0,0,0,0,0,0,0,0,1},
+    {1,0,0,0,0,0,0,0,0,0,0,1,0,0,2,0,2,2,0,0,0,2,0,1},
+    {1,0,3,0,0,0,0,0,0,2,0,1,0,0,2,0,0,0,0,2,0,0,0,1},
+    {1,0,3,3,0,0,0,0,2,2,0,1,0,0,2,0,0,0,0,0,0,0,0,1},
+    {1,0,0,0,0,0,0,0,0,0,0,1,0,0,0,0,0,0,0,2,0,0,0,1},
+    {1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1}
 };
 
-/* FIX #5 — verifica bounds antes de acessar o mapa */
-int mapIsWall(float x, float y) {
-    int mx = (int)(x / TILE_SIZE);
-    int my = (int)(y / TILE_SIZE);
-    if (mx < 0 || mx >= MAP_SIZE || my < 0 || my >= MAP_SIZE) return 1;
-    return map[my][mx] == 1;
-}
+int main(void) {
+    // Inicialização da Janela conforme rcore
+    InitWindow(SCREEN_WIDTH, SCREEN_HEIGHT, "Masmorrearemos");
 
-int main() {
-    InitWindow(1200, 600, "Raycasting");
-
-    Vector2 playerPos   = { 96, 96 };
-    float   playerAngle = 0.0f;
-
-    // --- carregamento de textura (sem alteração) ---
-    Texture2D wallTexture = { 0 };
-    const char *paths[] = {
-        "C:/projetos/dedalos/img/parede.jpg",
-        "img/parede.jpg", "..\\img\\parede.jpg"
-    };
-    for (int i = 0; i < 3; i++) {
-        wallTexture = LoadTexture(paths[i]);
-        if (wallTexture.id != 0) break;
-    }
+    // Configuração da Câmera (Vetores)
+    Vector2 pos = { 5.0f, 5.0f };      // Posição inicial
+    Vector2 dir = { -1.0f, 0.0f };     // Vetor de direção
+    Vector2 plane = { 0.0f, 0.66f };   // Plano da câmera (determina o FOV)
 
     SetTargetFPS(60);
 
     while (!WindowShouldClose()) {
-
-        // --- movimento ---
-        if (IsKeyDown(KEY_LEFT))  playerAngle -= 0.05f;
-        if (IsKeyDown(KEY_RIGHT)) playerAngle += 0.05f;
-
-        if (IsKeyDown(KEY_UP)) {
-            float nx = playerPos.x + cos(playerAngle) * 3;
-            float ny = playerPos.y + sin(playerAngle) * 3;
-            // FIX #4 — colisão com margem nos 4 cantos
-            if (!mapIsWall(nx+MARGIN, ny+MARGIN) && !mapIsWall(nx-MARGIN, ny-MARGIN) &&
-                !mapIsWall(nx+MARGIN, ny-MARGIN) && !mapIsWall(nx-MARGIN, ny+MARGIN)) {
-                playerPos.x = nx; playerPos.y = ny;
-            }
-
+        // --- 1. Entrada de Usuário e Movimentação ---
+        float deltaTime = GetFrameTime();
+        float moveSpeed = deltaTime * 5.0f;
+        float rotSpeed = deltaTime * 3.0f;
+        //----- Movimentação Lateral --------------
+        if(IsKeyDown(KEY_Q)){
+            if (worldMap[(int)(pos.x - plane.x * moveSpeed)][(int)pos.y] == 0) pos.x -= plane.x * moveSpeed;
+            if (worldMap[(int)pos.x][(int)(pos.y - plane.y * moveSpeed)] == 0) pos.y -= plane.y * moveSpeed;
+        }  
+        if(IsKeyDown(KEY_E)){
+            if (worldMap[(int)(pos.x + plane.x * moveSpeed)][(int)pos.y] == 0) pos.x += plane.x * moveSpeed;
+            if (worldMap[(int)pos.x][(int)(pos.y + plane.y * moveSpeed)] == 0) pos.y += plane.y * moveSpeed;
         }
-        if (IsKeyDown(KEY_DOWN)) {
-            float nx = playerPos.x - cos(playerAngle) * 3;
-            float ny = playerPos.y - sin(playerAngle) * 3;
-            if (!mapIsWall(nx+MARGIN, ny+MARGIN) && !mapIsWall(nx-MARGIN, ny-MARGIN) &&
-                !mapIsWall(nx+MARGIN, ny-MARGIN) && !mapIsWall(nx-MARGIN, ny+MARGIN)) {
-                playerPos.x = nx; playerPos.y = ny;
-            }
-
+        //------ Movimentação para Frente e Trás --------------
+        if (IsKeyDown(KEY_W)) {
+            if (worldMap[(int)(pos.x + dir.x * moveSpeed)][(int)pos.y] == 0) pos.x += dir.x * moveSpeed;
+            if (worldMap[(int)pos.x][(int)(pos.y + dir.y * moveSpeed)] == 0) pos.y += dir.y * moveSpeed;
+        }
+                if (IsKeyDown(KEY_S)) {
+            if (worldMap[(int)(pos.x - dir.x * moveSpeed)][(int)pos.y] == 0) pos.x -= dir.x * moveSpeed;
+            if (worldMap[(int)pos.x][(int)(pos.y - dir.y * moveSpeed)] == 0) pos.y -= dir.y * moveSpeed;
+        }
+        // Rotação usando Matriz de Rotação conforme especificação
+        if (IsKeyDown(KEY_D)) {
+            float oldDirX = dir.x;
+            dir.x = dir.x * cos(-rotSpeed) - dir.y * sin(-rotSpeed);
+            dir.y = oldDirX * sin(-rotSpeed) + dir.y * cos(-rotSpeed);
+            float oldPlaneX = plane.x;
+            plane.x = plane.x * cos(-rotSpeed) - plane.y * sin(-rotSpeed);
+            plane.y = oldPlaneX * sin(-rotSpeed) + plane.y * cos(-rotSpeed);
+        }
+        if (IsKeyDown(KEY_A)) {
+            float oldDirX = dir.x;
+            dir.x = dir.x * cos(rotSpeed) - dir.y * sin(rotSpeed);
+            dir.y = oldDirX * sin(rotSpeed) + dir.y * cos(rotSpeed);
+            float oldPlaneX = plane.x;
+            plane.x = plane.x * cos(rotSpeed) - plane.y * sin(rotSpeed);
+            plane.y = oldPlaneX * sin(rotSpeed) + plane.y * cos(rotSpeed);
         }
 
+        // --- 2. Renderização Raycasting (DDA) ---
         BeginDrawing();
         ClearBackground(BLACK);
-        DrawRectangle(600, 0,   600, 300, SKYBLUE);
-        DrawRectangle(600, 300, 600, 300, DARKGRAY);
 
-        // --- mapa 2D ---
-        for (int y = 0; y < MAP_SIZE; y++)
-            for (int x = 0; x < MAP_SIZE; x++)
-                if (map[y][x] == 1)
-                    DrawRectangle(x*TILE_SIZE, y*TILE_SIZE, TILE_SIZE-1, TILE_SIZE-1, DARKGRAY);
+        // Desenhar Chão e Teto (Simples)
+        DrawRectangle(0, SCREEN_HEIGHT/2, SCREEN_WIDTH, SCREEN_HEIGHT/2, DARKGRAY);
 
-        // --- raycasting ---
-        for (int i = 0; i < NUM_RAYS; i++) {
+        for (int x = 0; x < SCREEN_WIDTH; x++) {
+            // Calcular posição e direção do raio
+            float cameraX = 2 * x / (float)SCREEN_WIDTH - 1; 
+            float rayDirX = dir.x + plane.x * cameraX;
+            float rayDirY = dir.y + plane.y * cameraX;
 
-            // FIX #1 — FOV de 60° em radianos, distribuído entre NUM_RAYS raios
-            float rayAngle = (playerAngle - FOV/2.0f) +
-                              (((float)i / (NUM_RAYS - 1)) * FOV);
+            // Posição na grade do mapa
+            int mapX = (int)pos.x;
+            int mapY = (int)pos.y;
 
+            // Comprimento do raio de uma linha da grade para a próxima
+            float deltaDistX = (rayDirX == 0) ? 1e30 : fabsf(1 / rayDirX);
+            float deltaDistY = (rayDirY == 0) ? 1e30 : fabsf(1 / rayDirY);
+            
+            float sideDistX, sideDistY;
+            int stepX, stepY;
+            int hit = 0; 
+            int side; // 0 para X, 1 para Y
 
-            float distance = 0;
-            float rx = playerPos.x, ry = playerPos.y;
-
-            // FIX #5 — usa mapIsWall() com checagem de bounds
-            while (!mapIsWall(rx, ry) && distance < 600) {
-
-                distance += 1;
-                rx = playerPos.x + cos(rayAngle) * distance;
-                ry = playerPos.y + sin(rayAngle) * distance;
-            }
-
-            DrawLineV(playerPos, (Vector2){rx, ry}, YELLOW);
-
-            // FIX #3 — correção fish-eye: multiplica pelo cosseno do ângulo relativo
-            float correctedDist = distance * cos(rayAngle - playerAngle);
-
-            if (correctedDist < 1) correctedDist = 1;
-            float wallHeight = (TILE_SIZE * 600) / correctedDist;
-            if (wallHeight > 600) wallHeight = 600;
-
-            Rectangle destRect = { 600 + (i * 10), (600 - wallHeight) / 2, 9, wallHeight };
-
-            if (wallTexture.id != 0) {
-                // FIX #2 — texX usa a coordenada local no tile (0..TILE_SIZE)
-                //          detecta parede vertical vs horizontal pelo resto dominante
-                float hitX = fmod(rx, TILE_SIZE);
-                float hitY = fmod(ry, TILE_SIZE);
-                float texXf;
-                // se o raio bateu mais perto de borda vertical, usa hitY; senão hitX
-                float dX = fmin(hitX, TILE_SIZE - hitX);
-                float dY = fmin(hitY, TILE_SIZE - hitY);
-                texXf = (dX < dY)
-                    ? (hitY / TILE_SIZE) * wallTexture.width
-                    : (hitX / TILE_SIZE) * wallTexture.width;
-                if (texXf < 0) texXf += wallTexture.width;
-
-                Rectangle srcRect = { texXf, 0, 1, (float)wallTexture.height };
-                DrawTexturePro(wallTexture, srcRect, destRect, (Vector2){0,0}, 0.0f, WHITE);
+            // Passo inicial e distância lateral
+            if (rayDirX < 0) {
+                stepX = -1;
+                sideDistX = (pos.x - mapX) * deltaDistX;
             } else {
-                DrawRectangleRec(destRect, ORANGE);
+                stepX = 1;
+                sideDistX = (mapX + 1.0f - pos.x) * deltaDistX;
             }
+            if (rayDirY < 0) {
+                stepY = -1;
+                sideDistY = (pos.y - mapY) * deltaDistY;
+            } else {
+                stepY = 1;
+                sideDistY = (mapY + 1.0f - pos.y) * deltaDistY;
+            }
+
+            // --- Loop DDA ---
+            while (hit == 0) {
+                if (sideDistX < sideDistY) {
+                    sideDistX += deltaDistX;
+                    mapX += stepX;
+                    side = 0;
+                } else {
+                    sideDistY += deltaDistY;
+                    mapY += stepY;
+                    side = 1;
+                }
+                if (worldMap[mapX][mapY] > 0) hit = 1;
+            }
+
+            // Distância perpendicular (evita fisheye)
+            float perpWallDist;
+            if (side == 0) perpWallDist = (sideDistX - deltaDistX);
+            else           perpWallDist = (sideDistY - deltaDistY);
+
+            // Calcular altura da linha na tela
+            int lineHeight = (int)(SCREEN_HEIGHT / perpWallDist);
+
+            // Calcular pixels de início e fim da coluna
+            int drawStart = -lineHeight / 2 + SCREEN_HEIGHT / 2;
+            if (drawStart < 0) drawStart = 0;
+            int drawEnd = lineHeight / 2 + SCREEN_HEIGHT / 2;
+            if (drawEnd >= SCREEN_HEIGHT) drawEnd = SCREEN_HEIGHT - 1;
+
+            // Definir cor baseada no ID do mapa e lado
+            Color color = RED;
+            if (worldMap[mapX][mapY] == 2) color = GREEN;
+            if (worldMap[mapX][mapY] == 3) color = BLUE;
+            if (side == 1) color = (Color){ color.r/2, color.g/2, color.b/2, 255 }; // Sombra
+
+            float intensity = 1.0f / (1.0f + perpWallDist * perpWallDist * 0.1f);
+            Color tint = (Color){ 255 * intensity, 255 * intensity, 255 * intensity, 255 };
+            // Desenhar a coluna vertical
+            DrawLine(x, drawStart, x, drawEnd, color);
         }
 
-        DrawCircleV(playerPos, 5, RED);
+        DrawFPS(10, 10);
         EndDrawing();
     }
 
-    UnloadTexture(wallTexture);
     CloseWindow();
     return 0;
 }
