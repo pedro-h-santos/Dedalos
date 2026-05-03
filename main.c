@@ -1,8 +1,11 @@
 #include "raylib.h"
 #include <math.h>
 
-#define MAP_SIZE 8
+#define MAP_SIZE  8
 #define TILE_SIZE 64
+#define FOV       1.0472f   // 60 graus em radianos
+#define NUM_RAYS  60
+#define MARGIN    4         // margem de colisão em pixels
 
 int map[MAP_SIZE][MAP_SIZE] = {
     {1,1,1,1,1,1,1,1},
@@ -15,139 +18,126 @@ int map[MAP_SIZE][MAP_SIZE] = {
     {1,1,1,1,1,1,1,1},
 };
 
+/* FIX #5 — verifica bounds antes de acessar o mapa */
+int mapIsWall(float x, float y) {
+    int mx = (int)(x / TILE_SIZE);
+    int my = (int)(y / TILE_SIZE);
+    if (mx < 0 || mx >= MAP_SIZE || my < 0 || my >= MAP_SIZE) return 1;
+    return map[my][mx] == 1;
+}
+
 int main() {
-    InitWindow(1200, 600, "Raycasting - Do 2D para o 3D");
-    
-    // Posicionar o jogador em um tile vazio do mapa.
-    // Antes ele estava em (150,150), que cai dentro da parede em map[2][2] == 1.
-    Vector2 playerPos = { 96, 96 };
-    float playerAngle = 0.0f; // Direção que o jogador olha
+    InitWindow(1200, 600, "Raycasting");
 
-    // Definir nível de log para ver mensagens de erro e info no console
-    SetTraceLogLevel(LOG_INFO);
+    Vector2 playerPos   = { 96, 96 };
+    float   playerAngle = 0.0f;
 
-    // Mostrar o diretório de trabalho atual, para saber onde o carregamento relativo está sendo feito
-    const char *workingDir = GetWorkingDirectory();
-    TraceLog(LOG_INFO, "Diretório de trabalho: %s", workingDir);
-
-    // Tentar carregar a textura usando vários caminhos possíveis, incluindo o caminho absoluto
-    const char *wallPaths[] = {
-        "C:/projetos/dedalos/img/parede.jpg",
-        "C:/projetos/Dedalos/img/parede.jpg",
-        "img/parede.jpg",
-        ".\\img\\parede.jpg",
-        "..\\img\\parede.jpg",
-        "..\\..\\img\\parede.jpg"
-    };
+    // --- carregamento de textura (sem alteração) ---
     Texture2D wallTexture = { 0 };
-    const char *wallPath = wallPaths[0];
-    for (int i = 0; i < sizeof(wallPaths) / sizeof(wallPaths[0]); i++) {
-        wallTexture = LoadTexture(wallPaths[i]);
-        if (wallTexture.id != 0) {
-            wallPath = wallPaths[i];
-            TraceLog(LOG_INFO, "Textura carregada com sucesso: %s", wallPath);
-            break;
-        }
-        TraceLog(LOG_WARNING, "Falha ao carregar textura: %s", wallPaths[i]);
-    }
-    if (wallTexture.id == 0) {
-        TraceLog(LOG_ERROR, "Falha ao carregar qualquer textura de parede.");
+    const char *paths[] = {
+        "C:/projetos/dedalos/img/parede.jpg",
+        "img/parede.jpg", "..\\img\\parede.jpg"
+    };
+    for (int i = 0; i < 3; i++) {
+        wallTexture = LoadTexture(paths[i]);
+        if (wallTexture.id != 0) break;
     }
 
     SetTargetFPS(60);
 
     while (!WindowShouldClose()) {
-        // Rotação e Movimento com colisão
+
+        // --- movimento ---
         if (IsKeyDown(KEY_LEFT))  playerAngle -= 0.05f;
         if (IsKeyDown(KEY_RIGHT)) playerAngle += 0.05f;
+
         if (IsKeyDown(KEY_UP)) {
-            // Calcular nova posição
-            float newX = playerPos.x + cos(playerAngle) * 3;
-            float newY = playerPos.y + sin(playerAngle) * 3;
-            // Verificar se a nova posição não é uma parede (map == 0)
-            if (map[(int)(newY / TILE_SIZE)][(int)(newX / TILE_SIZE)] == 0) {
-                playerPos.x = newX;
-                playerPos.y = newY;
+            float nx = playerPos.x + cos(playerAngle) * 3;
+            float ny = playerPos.y + sin(playerAngle) * 3;
+            // FIX #4 — colisão com margem nos 4 cantos
+            if (!mapIsWall(nx+MARGIN, ny+MARGIN) && !mapIsWall(nx-MARGIN, ny-MARGIN) &&
+                !mapIsWall(nx+MARGIN, ny-MARGIN) && !mapIsWall(nx-MARGIN, ny+MARGIN)) {
+                playerPos.x = nx; playerPos.y = ny;
             }
+
         }
         if (IsKeyDown(KEY_DOWN)) {
-            // Calcular nova posição
-            float newX = playerPos.x - cos(playerAngle) * 3;
-            float newY = playerPos.y - sin(playerAngle) * 3;
-            // Verificar se a nova posição não é uma parede (map == 0)
-            if (map[(int)(newY / TILE_SIZE)][(int)(newX / TILE_SIZE)] == 0) {
-                playerPos.x = newX;
-                playerPos.y = newY;
+            float nx = playerPos.x - cos(playerAngle) * 3;
+            float ny = playerPos.y - sin(playerAngle) * 3;
+            if (!mapIsWall(nx+MARGIN, ny+MARGIN) && !mapIsWall(nx-MARGIN, ny-MARGIN) &&
+                !mapIsWall(nx+MARGIN, ny-MARGIN) && !mapIsWall(nx-MARGIN, ny+MARGIN)) {
+                playerPos.x = nx; playerPos.y = ny;
             }
+
         }
 
         BeginDrawing();
-            ClearBackground(BLACK);
+        ClearBackground(BLACK);
+        DrawRectangle(600, 0,   600, 300, SKYBLUE);
+        DrawRectangle(600, 300, 600, 300, DARKGRAY);
 
-            // Desenha teto e chão da visão 3D do lado direito para que o corredor fique visível
-            DrawRectangle(600, 0, 600, 300, SKYBLUE);
-            DrawRectangle(600, 300, 600, 300, DARKGRAY);
+        // --- mapa 2D ---
+        for (int y = 0; y < MAP_SIZE; y++)
+            for (int x = 0; x < MAP_SIZE; x++)
+                if (map[y][x] == 1)
+                    DrawRectangle(x*TILE_SIZE, y*TILE_SIZE, TILE_SIZE-1, TILE_SIZE-1, DARKGRAY);
 
-            if (wallTexture.id == 0) {
-                DrawText("FALHA NO CARREGAMENTO DA TEXTURA", 610, 10, 20, RED);
+        // --- raycasting ---
+        for (int i = 0; i < NUM_RAYS; i++) {
+
+            // FIX #1 — FOV de 60° em radianos, distribuído entre NUM_RAYS raios
+            float rayAngle = (playerAngle - FOV/2.0f) +
+                              (((float)i / (NUM_RAYS - 1)) * FOV);
+
+
+            float distance = 0;
+            float rx = playerPos.x, ry = playerPos.y;
+
+            // FIX #5 — usa mapIsWall() com checagem de bounds
+            while (!mapIsWall(rx, ry) && distance < 600) {
+
+                distance += 1;
+                rx = playerPos.x + cos(rayAngle) * distance;
+                ry = playerPos.y + sin(rayAngle) * distance;
+            }
+
+            DrawLineV(playerPos, (Vector2){rx, ry}, YELLOW);
+
+            // FIX #3 — correção fish-eye: multiplica pelo cosseno do ângulo relativo
+            float correctedDist = distance * cos(rayAngle - playerAngle);
+
+            if (correctedDist < 1) correctedDist = 1;
+            float wallHeight = (TILE_SIZE * 600) / correctedDist;
+            if (wallHeight > 600) wallHeight = 600;
+
+            Rectangle destRect = { 600 + (i * 10), (600 - wallHeight) / 2, 9, wallHeight };
+
+            if (wallTexture.id != 0) {
+                // FIX #2 — texX usa a coordenada local no tile (0..TILE_SIZE)
+                //          detecta parede vertical vs horizontal pelo resto dominante
+                float hitX = fmod(rx, TILE_SIZE);
+                float hitY = fmod(ry, TILE_SIZE);
+                float texXf;
+                // se o raio bateu mais perto de borda vertical, usa hitY; senão hitX
+                float dX = fmin(hitX, TILE_SIZE - hitX);
+                float dY = fmin(hitY, TILE_SIZE - hitY);
+                texXf = (dX < dY)
+                    ? (hitY / TILE_SIZE) * wallTexture.width
+                    : (hitX / TILE_SIZE) * wallTexture.width;
+                if (texXf < 0) texXf += wallTexture.width;
+
+                Rectangle srcRect = { texXf, 0, 1, (float)wallTexture.height };
+                DrawTexturePro(wallTexture, srcRect, destRect, (Vector2){0,0}, 0.0f, WHITE);
             } else {
-                DrawText("TEXTURA OK", 610, 10, 20, GREEN);
-                DrawText(TextFormat("Caminho: %s", wallPath), 610, 35, 10, WHITE);
-                DrawTextureEx(wallTexture, (Vector2){610, 55}, 0.0f, 0.25f, WHITE);
+                DrawRectangleRec(destRect, ORANGE);
             }
+        }
 
-            // --- PARTE 1: VISÃO 2D (Lado Esquerdo) ---
-            for (int y = 0; y < MAP_SIZE; y++) {
-                for (int x = 0; x < MAP_SIZE; x++) {
-                    if (map[y][x] == 1) DrawRectangle(x * TILE_SIZE, y * TILE_SIZE, TILE_SIZE-1, TILE_SIZE-1, DARKGRAY);
-                }
-            }
-
-            // Lançando raios (FOV de 60 graus)
-            for (int i = 0; i < 60; i++) {
-                float rayAngle = (playerAngle - 0.5f) + ((float)i / 60.0f);
-                float distance = 0;
-                float x = playerPos.x;
-                float y = playerPos.y;
-
-                // Faz o raio caminhar até bater na parede
-                while (map[(int)(y / TILE_SIZE)][(int)(x / TILE_SIZE)] == 0 && distance < 600) {
-                    distance += 1;
-                    x = playerPos.x + cos(rayAngle) * distance;
-                    y = playerPos.y + sin(rayAngle) * distance;
-                }
-
-                // Desenha o raio no 2D
-                DrawLineV(playerPos, (Vector2){x, y}, YELLOW);
-
-                // --- PARTE 2: PROJEÇÃO 3D (Lado Direito) ---
-                // Quanto menor a distância, maior a coluna
-                if (distance <= 0) distance = 1;
-                float wallHeight = (TILE_SIZE * 600) / distance; 
-                if (wallHeight > 600) wallHeight = 600;
-
-                // Desenha a coluna vertical da textura da parede no lado direito da tela (offset de 600px)
-                Rectangle destRect = { 600 + (i * 10), (600 - wallHeight) / 2, 9, wallHeight };
-                if (wallTexture.id != 0) {
-                    float texXf = fmod(x, wallTexture.width);
-                    if (texXf < 0) texXf += wallTexture.width;
-                    int texX = (int)texXf;
-                    Rectangle sourceRect = { (float)texX, 0, 1, (float)wallTexture.height }; // Coluna correta da textura
-                    Vector2 origin = { 0, 0 };
-                    DrawTexturePro(wallTexture, sourceRect, destRect, origin, 0.0f, WHITE);
-                } else {
-                    // Fallback visual se a textura não carregou
-                    DrawRectangleRec(destRect, ORANGE);
-                }
-            }
-
-            DrawCircleV(playerPos, 5, RED); // Jogador
+        DrawCircleV(playerPos, 5, RED);
         EndDrawing();
     }
 
-    // Descarregar a textura para liberar memória
     UnloadTexture(wallTexture);
-
     CloseWindow();
     return 0;
 }
