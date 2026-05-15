@@ -21,12 +21,12 @@ int main(void) {
 
         BeginDrawing();
             ClearBackground(BLACK);
-            Renderer_scene(&m, &p, &wallTexture);
+            Renderer_scene(&m, &p, &textura_parede);
             DrawFPS(10, 10);
         EndDrawing();
     }
 
-    UnloadTexture(wallTexture);
+    UnloadTexture(textura_parede);
     CloseWindow();
     return 0;
 }
