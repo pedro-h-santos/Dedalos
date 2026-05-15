@@ -7,7 +7,7 @@
 #define SCREEN_W 800
 #define SCREEN_H 450
 
-void Renderer_scene( Map *m, Player *p) {  // ← nome igual ao .h, parâmetros em ordem
+void Renderer_scene( Map *m, Player *p, Texture2D *textura_parede) {  // ← nome igual ao .h, parâmetros em ordem
 
     DrawRectangle(0, SCREEN_H / 2, SCREEN_W, SCREEN_H / 2, DARKGRAY);
 
@@ -42,13 +42,22 @@ void Renderer_scene( Map *m, Player *p) {  // ← nome igual ao .h, parâmetros 
         int drawStart  = SCREEN_H / 2 - lineHeight / 2; if (drawStart < 0)         drawStart = 0;
         int drawEnd    = SCREEN_H / 2 + lineHeight / 2; if (drawEnd >= SCREEN_H)   drawEnd   = SCREEN_H - 1;
 
-        int cell = Map_getgrid(m, mapX, mapY);  // ← era Map_getgrid
-        Color color = (cell == 2) ? GREEN : (cell == 3) ? BLUE : RED;
-        if (side == 1) color = (Color){ color.r/2, color.g/2, color.b/2, 255 };
-
         float intensity = 1.0f / (1.0f + perpWallDist * perpWallDist * 0.1f);
-        color = (Color){ color.r * intensity, color.g * intensity, color.b * intensity, 255 };
+        if (side == 1) intensity *= 0.6f;
+        Color tint = (Color){ 255 * intensity, 255 * intensity, 255 * intensity, 255 };
 
-        DrawLine(x, drawStart, x, drawEnd, color);
+        float wallX;
+        if (side == 0) wallX = p->pos.y + perpWallDist * rayDirY;
+        else           wallX = p->pos.x + perpWallDist * rayDirX;
+        wallX -= floorf(wallX);
+
+        int texX = (int)(wallX * textura_parede->width);
+        if (side == 0 && rayDirX > 0) texX = textura_parede->width - texX - 1;
+        if (side == 1 && rayDirY < 0) texX = textura_parede->width - texX - 1;
+
+        Rectangle source = { texX, 0, 1, textura_parede->height };
+        Rectangle dest = { x, drawStart, 1, drawEnd - drawStart + 1 };
+
+        DrawTexturePro(*textura_parede, source, dest, (Vector2){ 0, 0 }, 0.0f, tint);
     }
 }

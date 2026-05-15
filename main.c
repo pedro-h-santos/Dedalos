@@ -1,11 +1,13 @@
 #include "raylib.h"
-#include "../player/player.h"
-#include "../map/map.h"
+#include "player/player.h"
+#include "map/map.h"
 #include "renderer/renderer.h"
 
 int main(void) {
     InitWindow(800, 450, "Masmorrearemos");
     SetTargetFPS(60);
+
+    Texture2D textura_parede = LoadTexture("img/parede.bmp");
 
     Map m;
     Map_init(&m);         // troque por Map_generate(&map, 42) para mapa aleatório
@@ -19,11 +21,12 @@ int main(void) {
 
         BeginDrawing();
             ClearBackground(BLACK);
-            Renderer_scene(&m, &p);
+            Renderer_scene(&m, &p, &wallTexture);
             DrawFPS(10, 10);
         EndDrawing();
     }
 
+    UnloadTexture(wallTexture);
     CloseWindow();
     return 0;
 }
