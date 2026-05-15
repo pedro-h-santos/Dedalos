@@ -1,7 +1,8 @@
-#ifdef PLAYER_H
+#ifndef PLAYER_H
 #define PLAYER_H
 
 #include "raylib.h"
+#include "../map/map.h"
 
 
 typedef struct {
@@ -11,6 +12,6 @@ typedef struct {
 } Player;
 
 void Player_init(Player *p, float x, float y);
-void Player_handle_input(Player *p, float dt);
+void Player_handle_input(Player *p, Map *m, float dt);
 
 #endif

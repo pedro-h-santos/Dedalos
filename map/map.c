@@ -1,4 +1,4 @@
-#include "../map/map.h"
+#include "map.h"
 #include <string.h>
 
 static const int mapa_padrao[MAP_LINHAS][MAP_COLUNAS] = {
@@ -16,15 +16,15 @@ static const int mapa_padrao[MAP_LINHAS][MAP_COLUNAS] = {
     {1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1},
 };
 void Map_init(Map *m){
-    m->lin = MAP_LINHAS;
-    m->col = MAP_COLUNAS;
+    m->linhas = MAP_LINHAS;
+    m->colunas = MAP_COLUNAS;
     memcpy(m->grid, mapa_padrao, sizeof(mapa_padrao));
 }
 int Map_getgrid(Map *m, int x, int y){
-    if(x <0 || x >= m->col || y < 0 || y >= m->lin)
+    if(x <0 || x >= m->colunas || y < 0 || y >= m->linhas)
     return 1;
     return m->grid[y][x];
 }
-bool Map_iswalkable(Map *m, float x, float y){
+bool Map_is_walkable(Map *m, float x, float y){
     return Map_getgrid(m, (int)x, (int)y) == 0;
 }

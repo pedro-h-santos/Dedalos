@@ -1,8 +1,8 @@
-#ifdef RENDERER_H
+#ifndef RENDERER_H
 #define RENDERER_H
 
 #include "../map/map.h"
 #include "../player/player.h"
 
-void Render_scene(Map *m, Player *p);
+void Renderer_scene(Map *m, Player *p);
 #endif

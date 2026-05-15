@@ -7,7 +7,7 @@
 #define SCREEN_W 800
 #define SCREEN_H 450
 
-void Renderer_drawScene(Player *p, Map *m) {  // ← nome igual ao .h, parâmetros em ordem
+void Renderer_scene( Map *m, Player *p) {  // ← nome igual ao .h, parâmetros em ordem
 
     DrawRectangle(0, SCREEN_H / 2, SCREEN_W, SCREEN_H / 2, DARKGRAY);
 
@@ -34,7 +34,7 @@ void Renderer_drawScene(Player *p, Map *m) {  // ← nome igual ao .h, parâmetr
         while (hit == 0) {
             if (sideDistX < sideDistY) { sideDistX += deltaDistX; mapX += stepX; side = 0; }
             else                       { sideDistY += deltaDistY; mapY += stepY; side = 1; }
-            if (Map_getCell(m, mapX, mapY) > 0) hit = 1;  // ← era Map_getgrid
+            if (Map_getgrid(m, mapX, mapY) > 0) hit = 1;  // ← era Map_getgrid
         }
 
         float perpWallDist = (side == 0) ? (sideDistX - deltaDistX) : (sideDistY - deltaDistY);
@@ -42,7 +42,7 @@ void Renderer_drawScene(Player *p, Map *m) {  // ← nome igual ao .h, parâmetr
         int drawStart  = SCREEN_H / 2 - lineHeight / 2; if (drawStart < 0)         drawStart = 0;
         int drawEnd    = SCREEN_H / 2 + lineHeight / 2; if (drawEnd >= SCREEN_H)   drawEnd   = SCREEN_H - 1;
 
-        int cell = Map_getCell(m, mapX, mapY);  // ← era Map_getgrid
+        int cell = Map_getgrid(m, mapX, mapY);  // ← era Map_getgrid
         Color color = (cell == 2) ? GREEN : (cell == 3) ? BLUE : RED;
         if (side == 1) color = (Color){ color.r/2, color.g/2, color.b/2, 255 };
 
